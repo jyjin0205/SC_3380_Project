@@ -37,16 +37,16 @@ def function1(songTitle):
 #Search Artist's Id from musicId
 #And search Artist's info from Artist's Id
 def function1_1(musicId):
-    query = "SELECT Artist_id FROM ARTISTMUSIC WHERE Music_id == %s"
+    query = "SELECT Artist_id FROM ARTISTMUSIC WHERE Music_id = %s"
     mycursor.execute(query,(musicId,))
     myresult = mycursor.fetchall()
 
     if not myresult:
-        return "No Artist's id"
+        return None
     
     result = []
     
-    query = "SELECT * FROM ARTIST WHERE Id == %s"
+    query = "SELECT * FROM ARTIST WHERE Id = %s"
     for artist in myresult:
         mycursor.execute(query,(artist[0],))
         result.append(mycursor.fetchone())
@@ -59,14 +59,17 @@ def function1_1(musicId):
 def function1_2(playlistId,name,desc,sharing_type):
     query = "INSERT INTO PLAYLIST (Id, Name, Description, Sharing_type) VALUES (%s,%s,%s,%s)"
     mycursor.execute(query,(playlistId,name,desc,sharing_type,))
+    mydb.commit()
 
 #Make user-playlist relationship
 def function1_3(userId,playlistId,owning_status):
     query = "INSERT INTO USERPLAYLIST (User_id, Playlist_id) VALUES(%s, %s)"
     mycursor.execute(query,(userId,playlistId,))
+    mydb.commit()
 
     query = "INSERT INTO USERPLAYLIST_OWNINGSTATUS (User_id, Playlist_id,Owning_status) VALUES(%s, %s, %s)"
     mycursor.execute(query,(userId,playlistId,owning_status,))
+    mydb.commit()
     
 
 #Add Songs to Playlists using musicId and playlistId
@@ -78,6 +81,7 @@ def function1_4(musicId, playlistId):
     
     query = "INSERT INTO PLAYLISTMUSIC (Playlist_id,Music_id) VALUES(%s, %s)"
     mycursor.execute(query,(playlistId,musicId,))
+    mydb.commit()
 
 
 #Func2 : User_Subscribe_the_playlist
@@ -259,7 +263,7 @@ while True:
     event, values = window.read()
     # End program if user closes window or
     # presses the OK button
-    if event == "GO_MAIN" or "Main":
+    if event == "GO_MAIN" or event == "Main":
         window.close()
         window = sg.Window("DEMO", main_layout)
         current_layout = main_layout
@@ -273,6 +277,8 @@ while True:
     #Make_Playlist_layout
     if event == "Search Song" and current_layout == make_playlist_layout :
         user_input = values["-Songs_INPUT-"]
+        window["-RESULT_LAYOUT-"].update([]) ## reset result
+
         if not user_input.strip():
             sg.popup("Enter a song title!")
         else:
@@ -281,20 +287,23 @@ while True:
                 layout_part = [sg.Text("NO Result of the song title")]
                 window.extend_layout(window["-RESULT_LAYOUT-"],[layout_part])
             else: 
-                window["-RESULT_LAYOUT-"].update([])
-                layout_part =[sg.Text("Songs found:")]
+                layout_part = []
+                layout_part.append([sg.Text("Songs found:")])
+
                 for song in songsresult:
-                    layout_part.append(sg.Text("Title: "+song[2])) 
+                    layout_part_part = []
+                    layout_part_part.append(sg.Text("Title: "+song[2])) 
                     artists = function1_1(song[0])
                     if not artists:
-                        layout_part.append(sg.Text("No Artist Info"))
+                        layout_part_part.append(sg.Text("No Artist Info"))
                     else:
-                        layout_part.append(sg.Text("Artists:"))
+                        layout_part_part.append(sg.Text("Artists:"))
                         for artist in artists:
-                            layout_part.append(sg.Text(artist[1]))
-                    layout_part.append(sg.Button("Add to Playlist",key=f"ADDPLAY_{song[0]}"))
+                            layout_part_part.append(sg.Text(artist[1]))
+                    layout_part_part.append(sg.Button("Add to Playlist",key=f"ADDPLAY_{song[0]}"))
+                    layout_part.append(layout_part_part)
 
-                window.extend_layout(window["-RESULT_LAYOUT-"], [layout_part])
+                window.extend_layout(window["-RESULT_LAYOUT-"], layout_part)
         window["-Songs_INPUT-"].update(value="")
 
     if event.startswith("SearchSong_"): 
@@ -320,7 +329,7 @@ while True:
                         for artist in artists:
                             layout_part.append(sg.Text(artist[1]))
                     layout_part.append(sg.Button("Add to Playlist",key=f"ADDPLAY2_{song[0]}_{playlistId}"))
-
+                print(layout_part)
                 window.extend_layout(window["-RESULT_LAYOUT-"], [layout_part])
         window["-Songs_INPUT-"].update(value="")        
     
@@ -343,14 +352,17 @@ while True:
 
     
     if event == "MAKE_PLAYLIST_BUTTON":
+        window["-RESULT_LAYOUT-"].update([]) ## reset to confilm
+
         window.close()
         window = sg.Window("DEMO",make_playlist_confilm_layout)
         current_layout = make_playlist_confilm_layout
     
 
-    if event == "MAKE_PLAYLIST_BUTTON_2":
+    if event == "MAKE_PLAYLIST_BUTTON2":
         name_input = values["-Name_INPUT-"]
         desc_input = values["-Description_INPUT-"]
+
         if values["-Public-"]:
             sharing_input = 1
         elif values["-Private-"]:
