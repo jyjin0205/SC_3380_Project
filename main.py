@@ -1,7 +1,6 @@
 import mysql.connector
 import PySimpleGUI as sg
 import uuid
-import time
 
 ####### global variable #########
 making_playlist_id = None
@@ -219,13 +218,15 @@ def function6_2():
 
 #Get User's Next song
 def function6_3():
+    return None
 
 ##########layout part##########
 
 ###### GUI Function #######
 
 def go_main():
-    return "GO_MAIN"
+    window.write_event_value("Main",None)
+
 
 def create_main_btn(layout):
     layout.append([sg.Button("Main")])
@@ -269,7 +270,7 @@ def create_main_playlist_confilm_layout():
     [sg.In(key="-Description_INPUT-")],
     [sg.Text("Choose Sharing Type")],
     [sg.Radio("Public", "RADIO_GROUP", key="-Public-",default=True)],
-    [sg.Radio("Private", "RADIO_GROUP", key="-Privaate-")],
+    [sg.Radio("Private", "RADIO_GROUP", key="-Private-")],
     [sg.Button("Confilm", key="MAKE_PLAYLIST_BUTTON2")]
     ]
 
@@ -325,8 +326,7 @@ def create_my_playlists_layout():
 
 def create_modify_permission_layout(playlistId):
     default_modify_permission_layout = [
-        [sg.Text("Your")],
-        [sg.Text("",key="-YOUR_PLAYLIST_NAME-")],
+        [sg.Text("Your "),sg.Text("",key="-YOUR_PLAYLIST_NAME-"),sg.Button("Main")],
         [sg.In(key="-USERNAME_INPUT-")],
         [sg.Button("Search User",key=f"SearchUser_{playlistId}")],
         [sg.Text("",key="MODIFY_PERMISSION_TITLE")],
@@ -560,8 +560,11 @@ while True:
         songId = sendingSongs[int(event.split("_")[1])-1]
         window["MAKE_PLAYLIST_BUTTON"].update(visible=True)
         window["MAKE_PLAYLIST_BUTTON"].update(disabled=False)
-        selectedSongs.append(songId)
-        sg.popup("Song Added")
+        if songId in selectedSongs:
+            sg.popup("It have already added")
+        else:
+            selectedSongs.append(songId)
+            sg.popup("Song Added")
 
     
     if event == "MAKE_PLAYLIST_BUTTON":
@@ -656,17 +659,18 @@ while True:
         playlistInfo = function5_1(playlistId)
         new_layout = create_modify_permission_layout(playlistId)
         window.close()
-        window = sg.Window("DEMO", new_layout)
+        window = sg.Window("DEMO", new_layout,finalize=True)
         window["-YOUR_PLAYLIST_NAME-"].update(playlistInfo[1])
 
 
     if event.startswith("SearchUser_"):
+        playlistId = event.split("_")[1]
         user_input = values["-USERNAME_INPUT-"]
 
         for i in range(1,6):
             window["MP_"+str(i)].update("")
-            window["ADDMP_"+str(i)].update(visible=False)
-            window["ADDMP_"+str(i)].update(disabled=True)
+            window["ADDMP_"+{playlistId}+"_"+str(i)].update(visible=False)
+            window["ADDMP_"+{playlistId}+"_"+str(i)].update(disabled=True)
 
         if not user_input.strip():
             sg.popup("Enter a user name!")
