@@ -1,6 +1,7 @@
 import mysql.connector
 import PySimpleGUI as sg
 import uuid
+import time
 
 ####### global variable #########
 making_playlist_id = None
@@ -83,16 +84,30 @@ def function1_4(musicId, playlistId):
     if not playlistId:
         return "Playlist Id Error"
     
+    query = """SELECT EXISTS(
+        SELECT 1
+        FROM PLAYLISTMUSIC as PM
+        WHERE PM.Playlist_id = %s
+        AND PM.Music_id = %s
+    );"""
+    mycursor.execute(query,(playlistId,musicId,))
+    myresult = mycursor.fetchall()
+
+    if myresult[0][0]:
+        return "This Music Already Exist"
+    
     query = "INSERT INTO PLAYLISTMUSIC (Playlist_id,Music_id) VALUES(%s, %s)"
     mycursor.execute(query,(playlistId,musicId,))
     mydb.commit()
+
+    return None
 
 
 #Func2 : User_Subscribe_the_playlist
 def function2(userId, playlistName):
     query = """
         SELECT * FROM PLAYLIST p 
-        WHERE p.Sharing_type==1 
+        WHERE p.Sharing_type = 1 
         AND p.Name LIKE %s
         AND NOT EXISTS(
             SELECT 1
@@ -134,7 +149,7 @@ def function4(playlistId):
     myresult = mycursor.fetchall()
 
     if not myresult:
-            return "No Playlist's Music"
+        return "No Playlist's Music"
     
     result = []
     for music in myresult:
@@ -173,28 +188,39 @@ def function5_2(userId, playlistId):
 
     return myresult #one tuple
 
+#Delete Playlist's song if the song isn't the only song of it
+def function5_3(playlistId, musicId):
+    query = "SELECT COUNT(*) FROM PLAYLISTMUSIC WHERE Playlist_id = %s"
+    mycursor.execute(query,(playlistId,))
+    myresult = mycursor.fetchone()
 
+    if myresult[0] <= 1:
+        return "The playlist must have at least one song"
+
+    query = "DELETE FROM PLAYLISTMUSIC WHERE Playlist_id = %s AND Music_id = %s"
+    mycursor.execute(query,(playlistId,musicId,))
+    mydb.commit()
+    return None
+
+#Set User's Playback operation
+#It can be 1, 2, 3, 4. 1 means ‘one song repeat’, 2 means ‘whole part repeat’, 
+#3 means ‘repeat randomly’, 4 means ‘play once’ 
+def function6():
+    return None
+
+#Set User's Playback_status
+#It can be 0 or 1. 0 means ‘paused’, 1 means ‘playing’
+def function6_1():
+    return None
+
+#Set User's Playing_song
+def function6_2():
+    return None
+
+#Get User's Next song
+def function6_3():
 
 ##########layout part##########
-# Main Window
-
-# Func1 : Make Playlist Window
-
-# Func2 : Subscribe Playlist Window
-
-# Func3 & 4 & 5 : My Playlists Window
-
-# Func3 : Modify Permission Window
-
-
-
-# Func4 : Modify Playlist Window
-
-
-add_song_layout = [
-    [sg.Text("Enter Song Name")],
-    [sg.In(key="-Songs_INPUT-")]
-]
 
 ###### GUI Function #######
 
@@ -264,13 +290,17 @@ def create_subscribe_playlist_layout():
 
 def create_my_playlists_layout():
     my_playlists_layout = [
-        [sg.Text("Your")],
-        [sg.Text("",key="-YOUR_PLAYLIST_NAME-")],
-        [sg.Column([], key="-MODIFY_RESULT_LAYOUT-", scrollable=True)]
+        [sg.Text("Your Playlists"),sg.Button("Main")],
     ]
 
     myresult = function5(userId)
+    if not myresult :
+        my_playlists_layout.append([sg.Text("You don't have Playlist",key="MY_PLAYLISTS_TITLE")])
+        return my_playlists_layout
+
+    my_playlists_layout.append([sg.Text("You have "+str(len(myresult))+" playlists",key="MY_PLAYLISTS_TITLE")])
     for playlistId in myresult:
+        playlistId = playlistId[0]
         playlistInfo = function5_1(playlistId)
         OwningStatus = function5_2(userId,playlistId)
         layout_part = [sg.Text("Playlist's Name: "+ playlistInfo[1]),
@@ -278,16 +308,20 @@ def create_my_playlists_layout():
                         sg.Text("Public Playlist") if playlistInfo[3] else sg.Text("Private Playlist"),
                         sg.Text("Owner") if OwningStatus[0] == 1 else sg.Text("Subscriber")
                         ]
-        
+        my_playlists_layout.append(layout_part)
+        layout_part2=[sg.Button("Listen",key=f"Listen_{playlistId}")]
         #If user is owner
         if OwningStatus[0] == 1:
             if playlistInfo[3] == 0:
-                layout_part.append(sg.Button("Modify Permission",key=f"ModifyPermission_{playlistId}"))
+                layout_part2.append(sg.Button("Modify Permission",key=f"ModifyPermission_{playlistId}"))
         
         #If user can modify it
         if OwningStatus[0] == 1 or OwningStatus[0] == 2 :
-            layout_part.append(sg.Button("Modify Songs",key=f"ModifySongs_{playlistId}"))
-        my_playlists_layout.append(layout_part)
+            layout_part2.append(sg.Button("Modify Songs",key=f"ModifySongs_{playlistId}"))
+        
+        
+        my_playlists_layout.append(layout_part2)
+    return my_playlists_layout
 
 def create_modify_permission_layout(playlistId):
     default_modify_permission_layout = [
@@ -296,11 +330,11 @@ def create_modify_permission_layout(playlistId):
         [sg.In(key="-USERNAME_INPUT-")],
         [sg.Button("Search User",key=f"SearchUser_{playlistId}")],
         [sg.Text("",key="MODIFY_PERMISSION_TITLE")],
-        [sg.Text("",key="MP_1"),sg.Button("Add User",key="ADDMP_{playlistId}_1",disabled=True, visible=False)],
-        [sg.Text("",key="MP_2"),sg.Button("Add User",key="ADDMP_{playlistId}_2",disabled=True, visible=False)],
-        [sg.Text("",key="MP_3"),sg.Button("Add User",key="ADDMP_{playlistId}_3",disabled=True, visible=False)],
-        [sg.Text("",key="MP_4"),sg.Button("Add User",key="ADDMP_{playlistId}_4",disabled=True, visible=False)],
-        [sg.Text("",key="MP_5"),sg.Button("Add User",key="ADDMP_{playlistId}_5",disabled=True, visible=False)]
+        [sg.Text("",key="MP_1"),sg.Button("Add User",key=f"ADDMP_{playlistId}_1",disabled=True, visible=False)],
+        [sg.Text("",key="MP_2"),sg.Button("Add User",key=f"ADDMP_{playlistId}_2",disabled=True, visible=False)],
+        [sg.Text("",key="MP_3"),sg.Button("Add User",key=f"ADDMP_{playlistId}_3",disabled=True, visible=False)],
+        [sg.Text("",key="MP_4"),sg.Button("Add User",key=f"ADDMP_{playlistId}_4",disabled=True, visible=False)],
+        [sg.Text("",key="MP_5"),sg.Button("Add User",key=f"ADDMP_{playlistId}_5",disabled=True, visible=False)]
     
     ]
 
@@ -308,25 +342,66 @@ def create_modify_permission_layout(playlistId):
 
 def create_modify_playlist_layout(playlistId):
     modify_playlist_layout = [
-        [sg.Text("Your"),sg.Button("Go Main")],
-        [sg.Text("",key="-YOUR_PLAYLIST_NAME-")],
-        [sg.Button("Add Songs",key=f"ADDSONG_{playlistId}")],
-        [sg.Text("",key="MODIFY_PLAYLIST_TITLE")],
-        [sg.Text("",key="MPP_1"),sg.Button("DELETE",key="DELETEMPP_{playlistId}_1",disabled=True, visible=False)],
-        [sg.Text("",key="MPP_2"),sg.Button("DELETE",key="DELETEMPP_{playlistId}_2",disabled=True, visible=False)],
-        [sg.Text("",key="MPP_3"),sg.Button("DELETE",key="DELETEMPP_{playlistId}_3",disabled=True, visible=False)],
-        [sg.Text("",key="MPP_4"),sg.Button("DELETE",key="DELETEMPP_{playlistId}_4",disabled=True, visible=False)],
-        [sg.Text("",key="MPP_5"),sg.Button("DELETE",key="DELETEMPP_{playlistId}_5",disabled=True, visible=False)]
+        [sg.Text("Your"),sg.Text("",key="-YOUR_PLAYLIST_NAME-"),sg.Button("Main")],
+        [sg.Button("Add Songs",key=f"ADDSONGMODIFY_{playlistId}")],
     ]
+
+    songsInfo = function4(playlistId)
+    if not songsInfo:
+        modify_playlist_layout.append([sg.Text("NO Result of the song",key="MODIFY_PLAYLIST_TITLE")])
+    else:
+        modify_playlist_layout.append([sg.Text("Songs in the Playlist",key="MODIFY_PLAYLIST_TITLE")])
+        for song in songsInfo:
+            SongInfoText="Title: "+song[2]+"\n"
+            artists = function1_1(song[0])
+            if not artists:
+                SongInfoText += "No Artist Info"
+            else:
+                SongInfoText += "Artists: "
+                artistText=""
+                for artist in artists:
+                    artistText+=artist[1]+" "
+                SongInfoText+=artistText
+            modify_playlist_layout.append([sg.Text(SongInfoText),sg.Button("DELETE",key=f"DELETEMPP_{playlistId}_{song[0]}")])
+    
     return modify_playlist_layout
 
 def create_add_song_to_playlist_layout(playlistId):
+    playlistInfo = function5_1(playlistId)
     add_song_layout = [
-        [sg.Button("Search Songs",key=f"SearchSong_{playlistId}"),sg.Button("Go To Playlist",key=f"ModifySongs_{playlistId}")]
-        [sg.Text("Enter Song Name")],
-        [sg.In(key="-Songs_INPUT-")]
+        [sg.Text("In Playlist: "+playlistInfo[1])], #not null
+        [sg.Text("Enter Song Name"),sg.Button("Main")],
+        [sg.In(key="-Songs_INPUT-"), sg.Button("Search Songs",key=f"SearchSong2_{playlistId}")],
+        [sg.Text("",key="MAKE_PLAYLIST_TITLE")],
+        [sg.Text("",key="MAKE_PLAYLIST_SONGINFO_1"),sg.Button("Add to Playlist",key=f"ADDSONG_1_{playlistId}",disabled=True, visible=False)],
+        [sg.Text("",key="MAKE_PLAYLIST_SONGINFO_2"),sg.Button("Add to Playlist",key=f"ADDSONG_2_{playlistId}",disabled=True, visible=False)],
+        [sg.Text("",key="MAKE_PLAYLIST_SONGINFO_3"),sg.Button("Add to Playlist",key=f"ADDSONG_3_{playlistId}",disabled=True, visible=False)],
+        [sg.Text("",key="MAKE_PLAYLIST_SONGINFO_4"),sg.Button("Add to Playlist",key=f"ADDSONG_4_{playlistId}",disabled=True, visible=False)],
+        [sg.Text("",key="MAKE_PLAYLIST_SONGINFO_5"),sg.Button("Add to Playlist",key=f"ADDSONG_5_{playlistId}",disabled=True, visible=False)]    
     ]
     return add_song_layout
+
+def create_listen_layout(playlistId):
+    songsInfo = function4(playlistId)
+    listen_layout = []
+    if not songsInfo:
+        listen_layout.append([sg.Text("NO song",key="LISTEN_TITLE")])
+    else:
+        listen_layout.append([sg.Text("Songs in the Playlist",key="LISTEN_TITLE")])
+        for song in songsInfo:
+            SongInfoText="Title: "+song[2]+"\n"
+            artists = function1_1(song[0])
+            if not artists:
+                SongInfoText += "No Artist Info"
+            else:
+                SongInfoText += "Artists: "
+                artistText=""
+                for artist in artists:
+                    artistText+=artist[1]+" "
+                SongInfoText+=artistText
+            listen_layout.append([sg.Text(SongInfoText),sg.Button("PLAY",key=f"PLAYLISTEN_{playlistId}_{song[0]}")])
+    
+    
 
 ##########GUI Part#########
 
@@ -350,9 +425,9 @@ while True:
         window = sg.Window("DEMO", new_layout)
     
     #Make_Playlist_layout
-    if event == "Search Song" :
+    if event == "Search Song":
         user_input = values["-Songs_INPUT-"]
-
+    
         #Reset
         for i in range(1,6):
             window["MAKE_PLAYLIST_SONGINFO_"+str(i)].update("")
@@ -393,44 +468,99 @@ while True:
     if event.startswith("SearchSong_"): 
         playlistId = event.split("_")[1]
         user_input = values["-Songs_INPUT-"]
-        
+
+        #Reset
+        for i in range(1,6):
+            window["MAKE_PLAYLIST_SONGINFO_"+str(i)].update("")
+            window["ADDPLAY_"+str(i)].update(visible=False)
+            window["ADDPLAY_"+str(i)].update(disabled=True)
+
         if not user_input.strip():
             sg.popup("Enter a song title!")
         else:
             songsresult = function1(user_input)
             if not songsresult:
-                layout_part = [sg.Text("NO Result of the song title")]
-                window.extend_layout(window["-RESULT_LAYOUT-"],[layout_part])
+                window["MAKE_PLAYLIST_TITLE"].update("NO Result of the song title")
             else: 
-                window["-RESULT_LAYOUT-"].update([])
-                layout_part =[sg.Text("Songs found:")]
+                window["MAKE_PLAYLIST_TITLE"].update("Songs found:")
+                sendingSongs = []
+                count = 1
                 for song in songsresult:
-                    layout_part.append(sg.Text("Title: "+song[2])) 
+                    if count > 5:
+                        break
+                    sendingSongs.append(song[0])
+                    SongInfoText="Title: "+ song[2]+"\n"
                     artists = function1_1(song[0])
                     if not artists:
-                        layout_part.append(sg.Text("No Artist Info"))
+                        SongInfoText += "No Artist Info"
                     else:
-                        layout_part.append(sg.Text("Artists:"))
+                        SongInfoText += "Artists: "
+                        artistText=""
                         for artist in artists:
-                            layout_part.append(sg.Text(artist[1]))
-                    layout_part.append(sg.Button("Add to Playlist",key=f"ADDPLAY2_{song[0]}_{playlistId}"))
-                print(layout_part)
-                window.extend_layout(window["-RESULT_LAYOUT-"], [layout_part])
+                            artistText+=artist[1]+" "
+                        SongInfoText+=artistText
+                    window["MAKE_PLAYLIST_SONGINFO_"+str(count)].update(SongInfoText)
+                    window["ADDPLAY_"+str(count)].update(visible=True)
+                    window["ADDPLAY_"+str(count)].update(disabled=False)
+                    count += 1
         window["-Songs_INPUT-"].update(value="")        
     
+    if event.startswith("SearchSong2_"): 
+        playlistId = event.split("_")[1]
+        user_input = values["-Songs_INPUT-"]
+
+        #Reset
+        for i in range(1,6):
+            window["MAKE_PLAYLIST_SONGINFO_"+str(i)].update("")
+            window["ADDSONG_"+str(i)+"_"+playlistId].update(visible=False)
+            window["ADDSONG_"+str(i)+"_"+playlistId].update(disabled=True)
+
+        if not user_input.strip():
+            sg.popup("Enter a song title!")
+        else:
+            songsresult = function1(user_input)
+            if not songsresult:
+                window["MAKE_PLAYLIST_TITLE"].update("NO Result of the song title")
+            else: 
+                window["MAKE_PLAYLIST_TITLE"].update("Songs found:")
+                sendingSongs = []
+                count = 1
+                for song in songsresult:
+                    if count > 5:
+                        break
+                    sendingSongs.append(song[0])
+                    SongInfoText="Title: "+ song[2]+"\n"
+                    artists = function1_1(song[0])
+                    if not artists:
+                        SongInfoText += "No Artist Info"
+                    else:
+                        SongInfoText += "Artists: "
+                        artistText=""
+                        for artist in artists:
+                            artistText+=artist[1]+" "
+                        SongInfoText+=artistText
+                    window["MAKE_PLAYLIST_SONGINFO_"+str(count)].update(SongInfoText)
+                    window["ADDSONG_"+str(count)+"_"+playlistId].update(visible=True)
+                    window["ADDSONG_"+str(count)+"_"+playlistId].update(disabled=False)
+                    count += 1
+        window["-Songs_INPUT-"].update(value="")    
+
+    if event.startswith("ADDSONG_"):
+        songId = sendingSongs[int(event.split("_")[1])-1]
+        playlist_Id = event.split("_")[2]
+        result = function1_4(songId,playlist_Id)
+        if result:
+            sg.popup(result)
+        else:
+            sg.popup("Song Added")
+
+
 
     if event.startswith("ADDPLAY_"):
         songId = sendingSongs[int(event.split("_")[1])-1]
         window["MAKE_PLAYLIST_BUTTON"].update(visible=True)
         window["MAKE_PLAYLIST_BUTTON"].update(disabled=False)
         selectedSongs.append(songId)
-        sg.popup("Song Added")
-
-
-    if event.startswith("ADDPLAY2_"):
-        songId = event.split("_")[1]
-        playlist_Id = event.split("_")[2]
-        function1_4(songId,playlist_Id)
         sg.popup("Song Added")
 
     
@@ -569,47 +699,37 @@ while True:
         sendingUserName = []
         go_main()
 
+    if event.startswith("DELETEMPP_"):
+        playlistId = event.split("_")[1]
+        songId = event.split("_")[2]
+        result = function5_3(playlistId,songId)
+        if result:
+            sg.popup(result)
+        else:
+            sg.popup("Deleted")
+        window.write_event_value("ModifySongs_"+playlistId,None)
+        
+        
 
     if event.startswith("ModifySongs_"):
         playlistId = event.split("_")[1]
         new_layout = create_modify_playlist_layout(playlistId)
         window.close()
-        window = sg.Window("DEMO", new_layout)
+        window = sg.Window("DEMO", new_layout,finalize=True)
         playlistInfo = function5_1(playlistId)
         window["-YOUR_PLAYLIST_NAME-"].update(playlistInfo[1])
 
-        #song 띄워줘야 함
-        songsInfo = function4(playlistId)
-        if not songsInfo:
-            window["MODIFY_PLAYLIST_TITLE"].update(sg.Text("NO Result of the song"))
-        else: 
-            window["MODIFY_PLAYLIST_TITLE"].update(sg.Text("Songs in the Playlist"))
-            layout_part=[]
-            deletingSongs = []
-            count = 1
-            for song in songsInfo:
-                if count>5:
-                    break
-                deletingSongs.append(song[0])
-                songInfoText="Title: "+song[2]+"\n"
-                artists = function1_1(song[0])
-                if not artists:
-                    SongInfoText += "No Artist Info"
-                else:
-                    SongInfoText += "Artists: "
-                    artistText=""
-                    for artist in artists:
-                        artistText+=artist[1]+" "
-                    SongInfoText+=artistText
-                window["MPP_"+str(count)].update(SongInfoText)
-                window["DELETEMPP_"+str(count)].update(visible=True)
-                window["DELETEMPP_"+str(count)].update(disabled=False)
-                count += 1
 
-
-    if event.startswith("ADDSONG_"):
+    if event.startswith("ADDSONGMODIFY_"):
         playlistId = event.split("_")[1]
-        
+        new_layout = create_add_song_to_playlist_layout(playlistId)
+        window.close()
+        window = sg.Window("DEMO",new_layout)
+
+    if event.startswith("Listen_"):
+        playlistId = event.split("_")[1]
+        new_layout = create_listen_layout(playlistId)
+
         
     if event == sg.WIN_CLOSED:
         break
