@@ -204,7 +204,13 @@ def function5_3(playlistId, musicId):
 #Set User's Playback operation
 #It can be 1, 2, 3, 4. 1 means ‘one song repeat’, 2 means ‘whole part repeat’, 
 #3 means ‘repeat randomly’, 4 means ‘play once’ 
-def function6():
+def function6(a):
+    if a not in ["1","2","3","4"]:
+        return None
+    query = "UPDATE USER SET Playback_operation = %s WHERE Id = %s"
+    mycursor.execute(query,(a,userId))
+    mydb.commit()
+
     return None
 
 #Set User's Playback_status
@@ -213,7 +219,10 @@ def function6_1():
     return None
 
 #Set User's Playing_song
-def function6_2():
+def function6_2(musicId):
+    query = "UPDATE USER SET Current_playlist = %s WHERE Id = %s"
+    mycursor.execute(query,(musicId,userId,))
+    mydb.commit()
     return None
 
 #Get User's Next song
@@ -292,7 +301,7 @@ def create_subscribe_playlist_layout():
 def create_my_playlists_layout():
     my_playlists_layout = [
         [sg.Text("Your Playlists"),sg.Button("Main")],
-    ]
+    ]    
 
     myresult = function5(userId)
     if not myresult :
@@ -384,10 +393,11 @@ def create_add_song_to_playlist_layout(playlistId):
 def create_listen_layout(playlistId):
     songsInfo = function4(playlistId)
     listen_layout = []
+
     if not songsInfo:
-        listen_layout.append([sg.Text("NO song",key="LISTEN_TITLE")])
+        listen_layout.append([sg.Text("NO song",key="LISTEN_TITLE"),sg.Button("Main")])
     else:
-        listen_layout.append([sg.Text("Songs in the Playlist",key="LISTEN_TITLE")])
+        listen_layout.append([sg.Text("Songs in the Playlist",key="LISTEN_TITLE"),sg.Button("Main")])
         for song in songsInfo:
             SongInfoText="Title: "+song[2]+"\n"
             artists = function1_1(song[0])
@@ -399,8 +409,8 @@ def create_listen_layout(playlistId):
                 for artist in artists:
                     artistText+=artist[1]+" "
                 SongInfoText+=artistText
-            listen_layout.append([sg.Text(SongInfoText),sg.Button("PLAY",key=f"PLAYLISTEN_{playlistId}_{song[0]}")])
-    
+            listen_layout.append([sg.Text(SongInfoText),sg.Button("PLAY",key=f"PLAYLISTEN_{playlistId}_{song[0]}_{song[2]}")])
+    return listen_layout
     
 
 ##########GUI Part#########
@@ -554,7 +564,19 @@ while True:
         else:
             sg.popup("Song Added")
 
+    if event.startswith("PLAYLISTEN"):
+        playlistId = event.split("_")[1]
+        songId = event.split("_")[2]
+        songTitle = event.split("_")[3]
 
+        function6_2(songId)
+        window.close()
+
+        new_layout = create_listen_layout(playlistId)
+        new_layout.insert(0,[[sg.Text("Playing"+songTitle)]])
+        window = sg.Window("DEMO",new_layout,finalize=True)
+
+        
 
     if event.startswith("ADDPLAY_"):
         songId = sendingSongs[int(event.split("_")[1])-1]
@@ -713,7 +735,13 @@ while True:
             sg.popup("Deleted")
         window.write_event_value("ModifySongs_"+playlistId,None)
         
-        
+    if event.startswith("Listen_"):
+        playlistId = event.split("_")[1]
+
+        window.close()
+        new_layout = create_listen_layout(playlistId)
+
+        window = sg.Window("DEMO",new_layout,finalize=True)
 
     if event.startswith("ModifySongs_"):
         playlistId = event.split("_")[1]
@@ -729,10 +757,6 @@ while True:
         new_layout = create_add_song_to_playlist_layout(playlistId)
         window.close()
         window = sg.Window("DEMO",new_layout)
-
-    if event.startswith("Listen_"):
-        playlistId = event.split("_")[1]
-        new_layout = create_listen_layout(playlistId)
 
         
     if event == sg.WIN_CLOSED:
