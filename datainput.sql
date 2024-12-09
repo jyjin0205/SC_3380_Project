@@ -12,6 +12,9 @@ INSERT INTO USER (Id, Name, Password, Age) VALUES
 ("my5", "my5", "password", 20),
 ("my6", "my6", "password", 20);
 
+INSERT INTO admin (Id, Name, Division) VALUES
+("admin1", "admin1",  "admin1div");
+
 INSERT INTO MUSIC (Id, File, Title) VALUES
 ("song1","filelink","song1"),
 ("song2","filelink","song2"),
@@ -48,8 +51,22 @@ INSERT INTO ARTISTMUSIC (Music_id, Artist_id) VALUES
 ("song9","art2");
 
 INSERT INTO PLAYLIST (Id,Name,Description,Sharing_type) VALUES
-("playlist1","Num1","The playlist of number 1",1);
+("playlist1","Num1","The playlist of number 1",1),
+
+("playlist2","Num2","The playlist of number 2",1);
+
+INSERT INTO PLAYLIST (Id,Name,Description,Sharing_type,Creater_id,Creater_description) VALUES
+("Official1","Official1","It is official playlist 1",1,"admin1","admin1 created it"),
+("Official2","Official2","It is official playlist 2",1,"admin1","admin1 created it again");
 
 INSERT INTO PLAYLISTMUSIC (Playlist_id,Music_id) VALUES
 ("playlist1","song1"),
-("playlist1","song10");
+("playlist1","song10"),
+
+("playlist2","song2"),
+
+("playlist2","song12");
+
+INSERT INTO PLAYLISTMUSIC (Playlist_id,Music_id) VALUES
+("Official1","song1"),
+("Official2","song10");
